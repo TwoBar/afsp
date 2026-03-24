@@ -14,7 +14,7 @@ Every agent that runs on a host has implicit access to whatever the filesystem e
 
 AFSP solves this with a single primitive: before an agent starts, its filesystem is constructed. Not filtered. Constructed. The agent cannot reason about what it cannot see because from its perspective there is nothing to see.
 
-This project is a standalone implementation of the AFSP protocol. It is built as infrastructure first — separate from any agent platform — so the design stays clean and the interface stays portable.
+This project is a reference implementation. The control plane API and database are one way to do it — the underlying model (declarative view construction with ENOENT semantics) can be implemented against any filesystem layer that supports mount namespaces. This repo is built as infrastructure first, separate from any agent platform, so the design stays clean and the interface stays portable.
 
 ---
 
