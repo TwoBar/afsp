@@ -75,6 +75,12 @@ SGTs work with any path. There is no required directory layout — shared spaces
 
 Out-of-view paths return `ENOENT` — no such file or directory. Not `EACCES` — permission denied. The agent cannot distinguish a forbidden path from a nonexistent one.
 
+### Known limitation: parent directory leakage
+
+When a view declares a deep path like `deep/nested/child/**`, the parent directories (`deep/`, `deep/nested/`) must exist for the mount to work. In v1, these parents are plain directories — an agent listing `deep/` could see sibling names even if it has no access to them. This leaks structure information.
+
+v2 will address this with **synthetic parents** — empty, read-only intermediate directories that contain only the declared children. Until then, operators who need strict isolation should keep view paths shallow or colocate related views under a common prefix.
+
 ---
 
 ## Architecture
@@ -224,6 +230,8 @@ All tiers receive the same filesystem view. Tier affects authentication and cont
 
 ## v2 Roadmap
 
+- Synthetic parent directories — empty, read-only intermediates that reveal only declared children
+- Arbitrary host path mounts — views spanning multiple unrelated host directories
 - S3 backing store
 - NFS backing store
 - Unified landscape — remote paths appear as local files transparently
