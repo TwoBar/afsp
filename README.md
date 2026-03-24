@@ -48,18 +48,22 @@ This project is a reference implementation. The control plane API and database a
 
 ### View declaration
 
-The operator declares what filesystem reality looks like for each agent in an `afsp.yml` file. This is registered into the control plane database. The file is a deployment descriptor — after registration the database is authoritative. Views can point to any path — AFSP imposes no directory structure.
+The operator declares what filesystem reality looks like for each agent in an `afsp.yml` file. This is registered into the control plane database. The file is a deployment descriptor — after registration the database is authoritative.
+
+All paths are relative to the volumes root (`AFSP_VOLUMES_PATH`, defaults to `/var/afsp/volumes/`). The operator organises this root however they like — AFSP imposes no directory structure within it.
 ```yaml
 name: cfo
 role: finance
 view:
-  - path: workspace/finance/**
+  - path: agents/cfo/**
     ops: [read, write]
   - path: shared/datasets/**
     ops: [read]
-  - path: /data/reports/**
+  - path: shared/reports/**
     ops: [read, write]
 ```
+
+Inside the container, the agent sees these as `/workspace/agents/cfo/`, `/workspace/shared/datasets/`, etc. Paths outside its view do not exist.
 
 ### Scope Grant Tokens (SGTs)
 
