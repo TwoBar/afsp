@@ -1,0 +1,21 @@
+# Example: Coding agent — scoped to a project directory.
+# Cannot see .env, deploy configs, or other agents' workspaces.
+
+name: coding-agent
+org_id: dev-team
+role: developer
+
+view:
+  # Project source code — full access
+  - path: project/src/**
+    ops: [read, write]
+
+  # Tests — can read and run, can write new tests
+  - path: project/tests/**
+    ops: [read, write]
+
+  # Shared type definitions — read-only
+  - path: project/shared/**
+    ops: [read]
+
+  # Cannot see: .env, deploy/, other agents' workspaces, etc.

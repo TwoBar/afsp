@@ -48,31 +48,24 @@ This project is a reference implementation. The control plane API and database a
 
 ### View declaration
 
-The operator declares what filesystem reality looks like for each agent in an `afsp.yml` file. This is registered into the control plane database. The file is a deployment descriptor — after registration the database is authoritative.
+The operator declares what filesystem reality looks like for each agent in an `afsp.yml` file. This is registered into the control plane database. The file is a deployment descriptor — after registration the database is authoritative. Views can point to any path — AFSP imposes no directory structure.
 ```yaml
 name: cfo
 role: finance
-runtime: python
-entrypoint: main.py
 view:
   - path: workspace/finance/**
     ops: [read, write]
-  - path: workspace/handoffs/inbound/**
+  - path: shared/datasets/**
     ops: [read]
-  - path: workspace/handoffs/outbound/**
-    ops: [write]
-    flags: [write_once]
-  - path: assets/brand/**
-    ops: [read]
+  - path: /data/reports/**
+    ops: [read, write]
 ```
-
-### Unified landscape
-
-An agent's experience of files accessed via AFSP is functionally equivalent to working with local files. The agent can read, write, execute, import, and reference files using standard shell operations regardless of whether files live on local disk, S3, or NFS. AFSP materialises remote paths locally before the agent starts. The only observable difference is first-access latency on remote-backed paths.
 
 ### Scope Grant Tokens (SGTs)
 
-When one agent produces an artifact another agent needs, the job engine issues an SGT. The file appears in the receiving agent's view. When the token expires or is consumed, the file disappears. The agent experiences this as a file that exists, then ceases to exist. It never experiences a permission boundary.
+When one agent needs to share a file with another, the operator (or an orchestrator) issues an SGT — a time-bounded, optionally single-use token that temporarily expands the receiving agent's view. The file appears. When the token expires or is consumed, the file disappears. The agent never experiences a permission boundary.
+
+SGTs work with any path. There is no required directory layout — shared spaces, private workspaces, group-scoped clusters, or flat structures all work. AFSP is a scoping primitive, not a workspace manager.
 
 ### ENOENT not EACCES
 
@@ -141,18 +134,36 @@ afsp/
 
 ---
 
-## Workspace layout
+## Example workspace layouts
+
+AFSP doesn't prescribe a directory structure. Views can point to any path. Here are common patterns:
+
+**Private workspaces + shared space**
 ```
-/var/afsp/volumes/
-├── handoffs/
-│   ├── inbound/       shared — read for receivers via SGT
-│   └── outbound/      shared — write-once for producers
-├── shared/
-│   └── brand-assets/  shared — read-only for all agents
-└── agents/
-    ├── cmo/           private — visible only to cmo-agent
-    ├── cfo/           private — visible only to cfo-agent
-    └── analytics/     private — visible only to analytics-agent
+/data/
+├── shared/              read-only for all agents
+├── team-finance/        read/write for finance group
+├── team-engineering/    read/write for engineering group
+├── agent-cfo/           private to cfo agent
+└── agent-analyst/       private to analyst agent
+```
+
+**Flat project structure**
+```
+/projects/
+├── frontend/            agent-frontend: read/write
+├── backend/             agent-backend: read/write
+├── shared-types/        both agents: read
+└── deploy/              agent-deployer: read/write, others: read via SGT
+```
+
+**Single workspace, scoped access**
+```
+/workspace/
+├── src/                 coding-agent: read/write
+├── tests/               test-agent: read/write, coding-agent: read
+├── docs/                docs-agent: read/write
+└── .env                 no agent sees this
 ```
 
 ---
@@ -235,7 +246,7 @@ All tiers receive the same filesystem view. Tier affects authentication and cont
 - Invisibility over denial — out-of-view paths return ENOENT, never EACCES
 - Identity-bound views — the view belongs to the agent identity, not the container
 - Least view by default — new agents see nothing, access is explicitly declared
-- Unified landscape — remote and local paths are indistinguishable to the agent
+- Layout-agnostic — AFSP is a scoping primitive, not a workspace manager. Any directory structure works
 - Deployment is an operator concern — agents never know about AFSP
 - Control plane ownership — the database is authoritative, not the afsp.yml file
 

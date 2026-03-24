@@ -1,26 +1,20 @@
-# Example: CFO agent — finance workspace with read/write,
-# read-only brand assets, and handoff zones for inter-agent file passing.
+# Example: CFO agent — private workspace + shared team data + company-wide assets.
 
 name: cfo
 org_id: acme
 role: finance
-runtime: python
-entrypoint: main.py
 
 view:
-  # Private workspace — full read/write access
-  - path: workspace/finance/**
+  # Private workspace — only this agent can see it
+  - path: agents/cfo/**
     ops: [read, write]
 
-  # Inbound handoffs — read-only, files appear via SGT
-  - path: workspace/handoffs/inbound/**
+  # Team-shared data — all finance agents can read
+  - path: shared/finance/**
+    ops: [read, write]
+
+  # Company-wide datasets — read-only
+  - path: shared/datasets/**
     ops: [read]
 
-  # Outbound handoffs — write-once, produce artifacts for other agents
-  - path: workspace/handoffs/outbound/**
-    ops: [write]
-    flags: [write_once]
-
-  # Shared assets — read-only reference material
-  - path: assets/brand/**
-    ops: [read]
+  # Additional paths can be granted dynamically via SGTs

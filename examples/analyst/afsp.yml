@@ -1,17 +1,19 @@
-# Example: Analyst agent — read-only access to shared datasets,
-# private workspace for outputs, no handoff zone access.
+# Example: Analyst agent — read-heavy, accesses shared datasets
+# and its own workspace. No access to other agents' private spaces.
 
 name: analyst
 org_id: acme
 role: analytics
-runtime: python
-entrypoint: analyze.py
 
 view:
   # Private workspace
-  - path: workspace/analyst/**
+  - path: agents/analyst/**
     ops: [read, write]
 
   # Shared datasets — read-only
-  - path: datasets/public/**
+  - path: shared/datasets/**
     ops: [read]
+
+  # Reports output — write results here for other agents to pick up via SGT
+  - path: shared/reports/**
+    ops: [read, write]
