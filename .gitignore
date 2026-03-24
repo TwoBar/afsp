@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+
+# AFSP runtime data
+var/afsp/db/*.db
+var/afsp/logs/
+var/afsp/volumes/agents/
+var/afsp/cache/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+
+# Test/cache
+.pytest_cache/
