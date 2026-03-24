@@ -134,8 +134,10 @@ class TestEndToEnd:
             "SELECT * FROM audit WHERE agent_id = ?", (agent_b_id,)
         ).fetchall()
 
-        assert len(audit_a) >= 2  # At least write+denied
-        assert len(audit_b) >= 2  # At least denied+allowed
+        # Agent A: 1 allowed write + 2 denied reads = 3
+        assert len(audit_a) == 3
+        # Agent B: 2 denied (outbound read + outbound write) + 1 allowed (SGT read) = 3
+        assert len(audit_b) == 3
 
         # Verify both allowed and denied outcomes exist
         outcomes_a = {r["outcome"] for r in audit_a}

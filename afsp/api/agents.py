@@ -1,6 +1,5 @@
 """Agent CRUD endpoints."""
 
-import json
 import uuid
 from typing import Optional
 
@@ -31,7 +30,7 @@ class AgentResponse(BaseModel):
 @router.post("/v1/agents", response_model=AgentResponse, dependencies=[Depends(require_operator)])
 def create_agent(req: CreateAgentRequest):
     db = get_db()
-    agent_id = f"{req.name}-{uuid.uuid4().hex[:4]}"
+    agent_id = f"{req.name}-{uuid.uuid4().hex[:8]}"
     client_secret = f"sk_afsp_{uuid.uuid4().hex}"
 
     secret_hash = bcrypt.hashpw(client_secret.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
@@ -54,6 +53,22 @@ def create_agent(req: CreateAgentRequest):
         status="active",
         client_secret=client_secret,
     )
+
+
+@router.get("/v1/agents", response_model=list[AgentResponse], dependencies=[Depends(require_operator)])
+def list_agents(status: str | None = None):
+    db = get_db()
+    if status:
+        rows = db.execute("SELECT * FROM agents WHERE status = ?", (status,)).fetchall()
+    else:
+        rows = db.execute("SELECT * FROM agents").fetchall()
+    return [
+        AgentResponse(
+            agent_id=r["agent_id"], org_id=r["org_id"], name=r["name"],
+            role=r["role"], status=r["status"],
+        )
+        for r in rows
+    ]
 
 
 @router.get("/v1/agents/{agent_id}", response_model=AgentResponse, dependencies=[Depends(require_operator)])

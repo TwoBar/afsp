@@ -1,6 +1,6 @@
 """POST /v1/auth — credential exchange for session token."""
 
-import uuid
+import secrets
 from datetime import datetime, timedelta, timezone
 import os
 
@@ -57,7 +57,7 @@ def auth_exchange(req: AuthRequest):
     )
 
     # Create session
-    session_id = f"sess_{uuid.uuid4().hex[:16]}"
+    session_id = f"sess_{secrets.token_urlsafe(24)}"
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(seconds=SESSION_TTL)
 

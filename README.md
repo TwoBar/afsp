@@ -1,10 +1,36 @@
 # AFSP — Agent File Scope Protocol
 
-> v0.1 MVP — standalone — Python 3.11+
+[![CI](https://github.com/TwoBar/afsp/actions/workflows/ci.yml/badge.svg)](https://github.com/TwoBar/afsp/actions/workflows/ci.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
+
+> v1.0 — standalone reference implementation — Python 3.11+
 
 AFSP is a filesystem perception layer for agents. It constructs a declared filesystem view for each agent before it starts, enforcing boundaries at the OS level. Agents perceive a unified filesystem regardless of where files physically live. AFSP is invisible to the agents it governs.
 
 > The agent wakes up inside a complete filesystem the operator designed. Other paths do not exist — not denied, not unreachable. Absent.
+
+---
+
+## Quick start
+
+```bash
+# Clone and install
+git clone https://github.com/TwoBar/afsp.git && cd afsp
+python -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+
+# Configure
+cp .env.example .env
+# Edit .env — set a strong AFSP_OPERATOR_TOKEN
+
+# Run the control plane
+export $(cat .env | xargs)
+uvicorn afsp.api.main:app --reload
+
+# Run tests
+pytest
+```
 
 ---
 
@@ -95,16 +121,21 @@ afsp/
 ├── afsp/
 │   ├── api/          control plane — FastAPI
 │   ├── db/           schema, migrations
-│   ├── runtime/      watcher, projection, enforcement, materialise
+│   ├── runtime/      watcher, projection, enforcement, materialise, pathutil
 │   ├── store/        local disk adapter, S3 stub
 │   └── cli/          Click CLI
 ├── tests/
+├── examples/         sample afsp.yml files
 ├── var/afsp/
 │   ├── agents/       drop afsp.yml files here
 │   ├── db/           afsp.db
 │   ├── volumes/      managed workspace storage
 │   └── logs/         audit log
-├── BUILD_GUIDE.md
+├── .env.example
+├── .github/workflows/ CI pipeline
+├── CONTRIBUTING.md
+├── LICENSE
+├── pyproject.toml
 └── README.md
 ```
 
@@ -132,11 +163,16 @@ afsp/
 |---|---|---|
 | POST | /v1/auth | exchange credentials for session token |
 | POST | /v1/agents | create agent identity |
+| GET | /v1/agents | list all agents (filterable by status) |
 | GET | /v1/agents/{id} | inspect agent |
+| DELETE | /v1/agents/{id} | remove agent |
 | PATCH | /v1/agents/{id}/suspend | suspend — all sessions revoked immediately |
 | POST | /v1/view/{agent_id} | declare or replace view |
 | GET | /v1/view/{agent_id} | get current view |
+| PATCH | /v1/view/{agent_id} | add entry to view |
+| DELETE | /v1/view/{agent_id}/{path_id} | remove entry from view |
 | POST | /v1/tokens | issue SGT |
+| GET | /v1/tokens/{id} | inspect token |
 | DELETE | /v1/tokens/{id} | revoke token early |
 | GET | /v1/audit | query audit log |
 
@@ -145,13 +181,13 @@ afsp/
 ## CLI
 ```bash
 afsp push {name}           deploy agent from afsp.yml
-afsp start {name}          start agent container
-afsp stop {name}           stop agent container
+afsp start {name}          start agent container (v2)
+afsp stop {name}           stop agent container (v2)
 afsp suspend {name}        revoke all sessions, stop container
 afsp inspect {name}        show agent identity and status
 afsp view {name}           show exactly what the agent perceives
-afsp logs {name}           stream agent logs
-afsp token issue           issue SGT manually
+afsp logs {name}           stream agent logs (v2)
+afsp token-issue           issue SGT manually
 afsp audit --agent {name}  query audit log for agent
 ```
 
@@ -171,18 +207,25 @@ All tiers receive the same filesystem view. Tier affects authentication and cont
 
 ---
 
-## Out of scope for v1
+## v2 Roadmap
 
-- S3 backing store (stub only)
+- S3 backing store
 - NFS backing store
+- Unified landscape — remote paths appear as local files transparently
 - OIDC federated authentication
 - Kubernetes CRD
 - Multi-host workspace federation
+- Container lifecycle management (start/stop/logs)
+- Rate limiting on API endpoints
+- Session management endpoints (validate, list, revoke individual)
+- WebUI
+
+## Out of scope
+
 - Execution routing or runtime management
 - Tool access control
 - Network traffic scoping
 - Content-aware access control
-- WebUI
 
 ---
 
@@ -208,7 +251,7 @@ No existing tool binds agent identity to declarative filesystem permissions with
 
 ## Stack
 
-Python 3.11+ · FastAPI · SQLite · Click · bcrypt · PyJWT · watchdog · PyYAML · pytest · uvicorn
+Python 3.11+ · FastAPI · SQLite · Click · bcrypt · watchdog · PyYAML · pytest · uvicorn
 
 ---
 

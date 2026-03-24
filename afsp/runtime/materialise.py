@@ -18,7 +18,9 @@ def materialise_path(path: str, backing_store: dict, cache_path: str | None = No
     cache_root = cache_path or CACHE_PATH
 
     if backing_store["type"] == "local":
-        return os.path.join(backing_store["root"], path.rstrip("/*"))
+        from afsp.runtime.pathutil import safe_join
+
+        return safe_join(backing_store["root"], path)
 
     if backing_store["type"] == "s3":
         raise NotImplementedError("S3 backing store is not implemented in MVP")

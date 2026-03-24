@@ -61,8 +61,11 @@ def log_audit(agent_id: str | None, op: str, path: str, outcome: str,
         "timestamp": timestamp,
         "container_id": container_id,
     })
-    with open(os.path.join(log_dir, "audit.jsonl"), "a") as f:
-        f.write(log_entry + "\n")
+    try:
+        with open(os.path.join(log_dir, "audit.jsonl"), "a") as f:
+            f.write(log_entry + "\n")
+    except OSError:
+        pass  # Best-effort file logging; DB entry already committed
 
     return audit_id
 
@@ -83,6 +86,15 @@ def check_operation(session_id: str, op: str, path: str, db,
     for entry in view:
         if matches_glob(path, entry["path"]):
             if op in entry["ops"]:
+                # For single-use SGTs, atomically mark as used
+                if entry.get("single_use"):
+                    cursor = db.execute(
+                        "UPDATE tokens SET used = 1 WHERE token_id = ? AND used = 0",
+                        (entry["id"],),
+                    )
+                    db.commit()
+                    if cursor.rowcount == 0:
+                        continue  # Already consumed by concurrent request
                 log_audit(agent_id, op, path, "allowed", session_id, db, container_id=container_id)
                 return True
 

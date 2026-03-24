@@ -20,5 +20,13 @@ var/afsp/cache/
 # OS
 .DS_Store
 
+# Secrets
+.env
+.env.local
+.env.production
+
 # Test/cache
 .pytest_cache/
+.coverage
+htmlcov/
+*.db

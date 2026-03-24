@@ -6,9 +6,10 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from afsp.api.main import get_db, require_operator
+from afsp.db import safe_json_loads
 
 router = APIRouter()
 
@@ -21,6 +22,31 @@ class TokenRequest(BaseModel):
     ttl: int = 3600
     single_use: bool = False
     issued_by: str = "operator"
+
+    @field_validator("path")
+    @classmethod
+    def validate_path(cls, v):
+        if "\x00" in v:
+            raise ValueError("Path contains null bytes")
+        if ".." in v.split("/"):
+            raise ValueError("Path contains '..' components")
+        return v
+
+    @field_validator("ops")
+    @classmethod
+    def validate_ops(cls, v):
+        allowed = {"read", "write", "execute"}
+        for op in v:
+            if op not in allowed:
+                raise ValueError(f"Invalid op: {op}. Allowed: {allowed}")
+        return v
+
+    @field_validator("ttl")
+    @classmethod
+    def validate_ttl(cls, v):
+        if v < 1 or v > 86400:
+            raise ValueError("TTL must be 1–86400 seconds")
+        return v
 
 
 class TokenResponse(BaseModel):
@@ -77,7 +103,7 @@ def get_token(token_id: str):
         "grantor": row["grantor"],
         "grantee": row["grantee"],
         "path": row["path"],
-        "ops": json.loads(row["ops"]),
+        "ops": safe_json_loads(row["ops"]),
         "expires_at": row["expires_at"],
         "single_use": bool(row["single_use"]),
         "used": bool(row["used"]),

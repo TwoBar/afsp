@@ -1,8 +1,9 @@
 """Projection layer — translates view declarations into bind mount specifications."""
 
-import json
 import os
 from datetime import datetime, timezone
+
+from afsp.db import safe_json_loads
 
 
 VOLUMES_PATH = os.environ.get("AFSP_VOLUMES_PATH", "/var/afsp/volumes")
@@ -16,7 +17,7 @@ def get_full_view(agent_id: str, db) -> list[dict]:
 
     now = datetime.now(timezone.utc).isoformat()
     sgt_rows = db.execute(
-        "SELECT token_id AS id, path, ops, 'null' AS flags FROM tokens "
+        "SELECT token_id AS id, path, ops, 'null' AS flags, single_use FROM tokens "
         "WHERE grantee = ? AND expires_at > ? AND (single_use = 0 OR used = 0)",
         (agent_id, now),
     ).fetchall()
@@ -26,15 +27,16 @@ def get_full_view(agent_id: str, db) -> list[dict]:
         result.append({
             "id": row["id"],
             "path": row["path"],
-            "ops": json.loads(row["ops"]),
-            "flags": json.loads(row["flags"]) if row["flags"] and row["flags"] != "null" else [],
+            "ops": safe_json_loads(row["ops"]),
+            "flags": safe_json_loads(row["flags"]) if row["flags"] and row["flags"] != "null" else [],
         })
     for row in sgt_rows:
         result.append({
             "id": row["id"],
             "path": row["path"],
-            "ops": json.loads(row["ops"]),
+            "ops": safe_json_loads(row["ops"]),
             "flags": [],
+            "single_use": bool(row["single_use"]) if "single_use" in row.keys() else False,
         })
 
     return result
@@ -42,8 +44,10 @@ def get_full_view(agent_id: str, db) -> list[dict]:
 
 def resolve_backing_store(path: str, volumes_path: str | None = None) -> str:
     """Resolve a view path to a host filesystem path."""
+    from afsp.runtime.pathutil import safe_join
+
     root = volumes_path or VOLUMES_PATH
-    return os.path.join(root, path.rstrip("/*"))
+    return safe_join(root, path)
 
 
 def build_volume_spec(agent_id: str, db, volumes_path: str | None = None) -> list[dict]:

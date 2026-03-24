@@ -77,7 +77,7 @@ class TestBuildVolumeSpec:
     def test_host_paths_resolve_correctly(self, db, agent_with_view):
         vols = build_volume_spec(agent_with_view, db, "/var/afsp/volumes")
         finance_vol = [v for v in vols if "finance" in v["container_path"]][0]
-        assert finance_vol["host_path"] == "/var/afsp/volumes/workspace/finance"
+        assert finance_vol["host_path"] == os.path.realpath("/var/afsp/volumes/workspace/finance")
 
     def test_sgt_paths_included(self, db, agent_with_view):
         # Create grantor agent

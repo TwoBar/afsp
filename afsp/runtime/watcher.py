@@ -1,8 +1,10 @@
 """Watches /var/afsp/agents/ for afsp.yml files and registers agents."""
 
 import json
+import logging
 import os
 import secrets
+import signal
 import uuid
 
 import bcrypt
@@ -19,14 +21,20 @@ def generate_client_secret() -> str:
     return f"sk_afsp_{secrets.token_hex(16)}"
 
 
-def parse_afsp_yml(path: str) -> dict:
-    with open(path) as f:
-        return yaml.safe_load(f)
+def parse_afsp_yml(path: str) -> dict | None:
+    try:
+        with open(path) as f:
+            return yaml.safe_load(f)
+    except (OSError, yaml.YAMLError) as exc:
+        logging.getLogger("afsp").warning("Failed to parse %s: %s", path, exc)
+        return None
 
 
 def register_agent(yml_path: str, db):
     """Register or update an agent from an afsp.yml file."""
     config = parse_afsp_yml(yml_path)
+    if config is None:
+        return None
     agent_dir = os.path.dirname(yml_path)
     name = config["name"]
 
@@ -39,7 +47,7 @@ def register_agent(yml_path: str, db):
         agent_id = existing["agent_id"]
         _update_views(agent_id, config.get("view", []), db)
     else:
-        agent_id = f"{name}-{uuid.uuid4().hex[:4]}"
+        agent_id = f"{name}-{uuid.uuid4().hex[:8]}"
         org_id = config.get("org_id", "default")
         role = config.get("role")
 
@@ -124,7 +132,7 @@ class AFSPHandler(FileSystemEventHandler):
 
 
 def start_watcher(agents_path: str | None = None, db=None):
-    """Start the filesystem watcher. Blocking call."""
+    """Start the filesystem watcher. Returns (observer, handler)."""
     path = agents_path or AGENTS_PATH
     os.makedirs(path, exist_ok=True)
     handler = AFSPHandler(db=db)
@@ -132,3 +140,15 @@ def start_watcher(agents_path: str | None = None, db=None):
     observer.schedule(handler, path, recursive=True)
     observer.start()
     return observer, handler
+
+
+def run_watcher(agents_path: str | None = None, db=None):
+    """Start the watcher and block until SIGINT/SIGTERM."""
+    observer, handler = start_watcher(agents_path, db)
+
+    def _shutdown(signum, frame):
+        observer.stop()
+
+    signal.signal(signal.SIGINT, _shutdown)
+    signal.signal(signal.SIGTERM, _shutdown)
+    observer.join()

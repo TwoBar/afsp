@@ -182,7 +182,7 @@ class TestAuditLogging:
             "SELECT * FROM audit WHERE agent_id = ? AND outcome = 'allowed'",
             (active_session["agent_id"],),
         ).fetchall()
-        assert len(rows) >= 1
+        assert len(rows) == 1
         assert rows[0]["op"] == "read"
         assert rows[0]["path"] == "workspace/finance/report.csv"
 
@@ -196,7 +196,7 @@ class TestAuditLogging:
             "SELECT * FROM audit WHERE agent_id = ? AND outcome = 'denied'",
             (active_session["agent_id"],),
         ).fetchall()
-        assert len(rows) >= 1
+        assert len(rows) == 1
 
     def test_audit_log_file_written(self, env, active_session):
         check_operation(
@@ -208,6 +208,6 @@ class TestAuditLogging:
         assert os.path.exists(log_path)
         with open(log_path) as f:
             lines = f.readlines()
-        assert len(lines) >= 1
+        assert len(lines) == 1
         entry = json.loads(lines[0])
         assert entry["outcome"] == "allowed"

@@ -46,13 +46,13 @@ class TestMaterialisePath:
         result = materialise_path(
             "workspace/finance", tmp_env["backing_store"], tmp_env["cache"]
         )
-        assert result == os.path.join(tmp_env["volumes"], "workspace/finance")
+        assert result == os.path.realpath(os.path.join(tmp_env["volumes"], "workspace/finance"))
 
     def test_local_path_with_glob_stripped(self, tmp_env):
         result = materialise_path(
             "workspace/finance/**", tmp_env["backing_store"], tmp_env["cache"]
         )
-        assert result == os.path.join(tmp_env["volumes"], "workspace/finance")
+        assert result == os.path.realpath(os.path.join(tmp_env["volumes"], "workspace/finance"))
 
     def test_s3_raises_not_implemented(self, tmp_env):
         with pytest.raises(NotImplementedError):

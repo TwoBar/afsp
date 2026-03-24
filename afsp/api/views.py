@@ -6,9 +6,10 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from afsp.api.main import get_db, require_operator
+from afsp.db import safe_json_loads
 
 router = APIRouter()
 
@@ -17,6 +18,24 @@ class ViewEntry(BaseModel):
     path: str
     ops: list[str]
     flags: Optional[list[str]] = None
+
+    @field_validator("path")
+    @classmethod
+    def validate_path(cls, v):
+        if "\x00" in v:
+            raise ValueError("Path contains null bytes")
+        if ".." in v.split("/"):
+            raise ValueError("Path contains '..' components")
+        return v
+
+    @field_validator("ops")
+    @classmethod
+    def validate_ops(cls, v):
+        allowed = {"read", "write", "execute"}
+        for op in v:
+            if op not in allowed:
+                raise ValueError(f"Invalid op: {op}. Allowed: {allowed}")
+        return v
 
 
 class ViewEntryResponse(BaseModel):
@@ -47,7 +66,8 @@ def declare_view(agent_id: str, entries: list[ViewEntry]):
     return {"status": "ok", "count": len(entries)}
 
 
-@router.get("/v1/view/{agent_id}", response_model=list[ViewEntryResponse])
+@router.get("/v1/view/{agent_id}", response_model=list[ViewEntryResponse],
+            dependencies=[Depends(require_operator)])
 def get_view(agent_id: str):
     """Get the full view for an agent: static views + active SGTs."""
     db = get_db()
@@ -63,8 +83,8 @@ def get_view(agent_id: str):
         result.append(ViewEntryResponse(
             id=row["id"],
             path=row["path"],
-            ops=json.loads(row["ops"]),
-            flags=json.loads(row["flags"]) if row["flags"] else None,
+            ops=safe_json_loads(row["ops"]),
+            flags=safe_json_loads(row["flags"], default=None),
             source="static",
         ))
 
@@ -78,7 +98,7 @@ def get_view(agent_id: str):
         result.append(ViewEntryResponse(
             id=row["token_id"],
             path=row["path"],
-            ops=json.loads(row["ops"]),
+            ops=safe_json_loads(row["ops"]),
             source="sgt",
             expires_at=row["expires_at"],
         ))

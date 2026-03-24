@@ -125,12 +125,18 @@ class TestWatcherIntegration:
         observer, handler = start_watcher(tmp_env["agents_path"], tmp_env["db"])
         try:
             _write_afsp_yml(tmp_env["agents_path"], "watcher-test")
-            # Give the watcher time to process
-            time.sleep(1.5)
 
-            row = tmp_env["db"].execute(
-                "SELECT * FROM agents WHERE name = ?", ("watcher-test",)
-            ).fetchone()
+            # Poll until watcher processes the file (up to 5s)
+            deadline = time.time() + 5.0
+            row = None
+            while time.time() < deadline:
+                row = tmp_env["db"].execute(
+                    "SELECT * FROM agents WHERE name = ?", ("watcher-test",)
+                ).fetchone()
+                if row is not None:
+                    break
+                time.sleep(0.1)
+
             assert row is not None
             assert row["status"] == "active"
         finally:

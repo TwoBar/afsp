@@ -11,11 +11,19 @@ from afsp.runtime.projection import resolve_backing_store
 
 def get_container_pid(container_id: str) -> int:
     """Get the PID of a Docker container's init process."""
-    result = subprocess.run(
-        ["docker", "inspect", "-f", "{{.State.Pid}}", container_id],
-        capture_output=True, text=True, check=True,
-    )
-    return int(result.stdout.strip())
+    try:
+        result = subprocess.run(
+            ["docker", "inspect", "-f", "{{.State.Pid}}", container_id],
+            capture_output=True, text=True, check=True,
+        )
+        pid = int(result.stdout.strip())
+        if pid == 0:
+            raise RuntimeError(f"Container {container_id} is not running (PID 0)")
+        return pid
+    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+        raise RuntimeError(f"Cannot get PID for container {container_id}: {exc}") from exc
+    except ValueError as exc:
+        raise RuntimeError(f"Invalid PID from container {container_id}: {exc}") from exc
 
 
 def mount_sgt(container_id: str, token: dict, volumes_path: str | None = None):

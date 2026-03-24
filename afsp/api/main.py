@@ -1,20 +1,29 @@
 """FastAPI application for AFSP control plane."""
 
+import hmac
+import logging
 import os
+import threading
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 
 from afsp.db.db import get_connection, init_db
 
+logger = logging.getLogger("afsp")
+
 app = FastAPI(title="AFSP Control Plane", version="1.0.0")
 
 _db_conn = None
+_db_lock = threading.Lock()
 
 
 def get_db():
     global _db_conn
-    if _db_conn is None:
-        _db_conn = init_db()
+    if _db_conn is not None:
+        return _db_conn
+    with _db_lock:
+        if _db_conn is None:
+            _db_conn = init_db()
     return _db_conn
 
 
@@ -26,11 +35,14 @@ def reset_db(conn):
 
 OPERATOR_TOKEN = os.environ.get("AFSP_OPERATOR_TOKEN", "")
 
+if not OPERATOR_TOKEN:
+    logger.warning("AFSP_OPERATOR_TOKEN not set — all operator endpoints will return 500")
+
 
 def require_operator(authorization: str = Header(None)):
     if not OPERATOR_TOKEN:
         raise HTTPException(status_code=500, detail="AFSP_OPERATOR_TOKEN not configured")
-    if authorization != f"Bearer {OPERATOR_TOKEN}":
+    if not hmac.compare_digest(authorization or "", f"Bearer {OPERATOR_TOKEN}"):
         raise HTTPException(status_code=401, detail="Invalid operator token")
 
 

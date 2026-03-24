@@ -2,6 +2,8 @@
 
 import os
 
+from afsp.runtime.pathutil import safe_join
+
 
 class LocalStore:
     def __init__(self, root: str):
@@ -9,7 +11,7 @@ class LocalStore:
         self.type = "local"
 
     def resolve(self, path: str) -> str:
-        return os.path.join(self.root, path.rstrip("/*"))
+        return safe_join(self.root, path)
 
     def exists(self, path: str) -> bool:
         return os.path.exists(self.resolve(path))
